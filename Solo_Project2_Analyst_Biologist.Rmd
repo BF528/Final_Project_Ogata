@@ -1,0 +1,156 @@
+---
+title: "Solo_Project"
+author: "go001"
+date: "5/11/2022"
+output: html_document
+---
+
+# Transcriptional Profile of Mammalian Cardiac Regeneration with mRNA-Seq
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+library(cowplot)
+library(tidyverse)
+```
+
+## Analyst
+
+```{r}
+    # Read in the gene expression files
+    file = "./gene_exp.diff"
+    gene_exp = read.delim(file = file)
+    str(gene_exp)
+```
+
+### Table of for the top 10 q_value
+```{r}  
+   temp =  gene_exp %>% arrange(q_value) %>%
+            select(gene_id,gene,value_1,value_2,log2.fold_change., p_value, q_value)
+   temp[1:10,]
+```
+### Hisotgram of the log2.foldchange
+
+```{r}
+    ggplot(gene_exp, aes(x=log2.fold_change.)) +
+        geom_histogram() +
+        theme_cowplot()
+
+```
+### Only significant 
+```{r}
+summary(gene_exp$significant)
+gene_exp_sig <- gene_exp %>% filter(significant == "yes")
+                    
+
+```
+
+```{r}
+    ggplot(gene_exp_sig, aes(x=log2.fold_change.)) +
+        geom_histogram(fill = "brown2") +
+        labs(x = "Log2(Fold Change)", title = "Histogram of Log2(Fold Change) in Signifciant Differntially Expressed Genes" ) +
+        theme_cowplot()
+```
+```{r}
+upregulated_gene_exp <- gene_exp_sig %>% filter(log2.fold_change. > 0) %>%
+                        select("gene")
+downregulated_gene_exp <- gene_exp_sig %>% filter(log2.fold_change. < 0)%>%
+                        select("gene")
+write.csv(upregulated_gene_exp, file = "./upreg.csv",row.names = F,col.names = F,quote = F)
+write.csv(downregulated_gene_exp,file = "./downreg.csv",row.names = F,col.names = F,quote = F)
+```
+
+## Biologist
+
+```{r}
+    # Loading Data
+    P0_2 = read.delim(file = "./genes.fpkm_tracking_P0_2")
+    P4_1 = read.delim(file = "./genes.fpkm_tracking_P4_1")
+    P4_2 = read.delim(file = "./genes.fpkm_tracking_P4_2")
+    P7_1 = read.delim(file = "./genes.fpkm_tracking_P7_1")
+    P7_2 = read.delim(file = "./genes.fpkm_tracking_P7_2")
+    AD_1 = read.delim(file = "./genes.fpkm_tracking_ad_1")
+    AD_2 = read.delim(file = "./genes.fpkm_tracking_ad_2")
+```
+
+```{r}
+    Sarc_gene_of_intrest = c("Pdlim5", "Pygm", "Myoz2", "Des", "Csrp3", "Tcap", "Cryab")
+    Mito_gene_of_intrest = c("Mpc1", "Prdx3", "Acat1", "Echs1", "Slc25a11", "Phyh")
+    cellcycle = c("Cdc7", "E2f8", "Cdk7", "Cdc26", "Cdc6", "E2f1", "Cdc27", "Bora", "Cdc45", "Rad51", "Aurkb", "Cdc23")
+    
+    Reduce_list_goi <- function(df, goi){
+        temp_data = df %>% select("gene_short_name","FPKM") %>%
+                        filter(gene_short_name %in% goi)
+        return(temp_data)
+    }
+    
+    join_tables <- function(df1,df2,name1,name2,goi){
+        temp_df2 = Reduce_list_goi(df2,goi)
+        temp_data = full_join(df1,temp_df2,by = "gene_short_name")
+        colnames(temp_data)[length(temp_data)] = name2
+        return(temp_data)
+    }
+    
+    
+    join_all_tables <- function(goi){
+        full_table = data.frame( gene_short_name = goi)
+        for (i in 1:length(tot_data_name)){
+                full_table = join_tables(full_table,data.frame(tot_data[i]),"full Table",tot_data_name[i],goi)
+        }
+        return(full_table)
+    }
+    tot_data = list(P0_2,P4_1,P4_2,P7_1,P7_2,AD_1,AD_2)
+    tot_data_name = c("P0_2","P4_1","P4_2","P7_1","P7_2","AD_1","AD_2")
+    
+    df_graph = join_all_tables(cellcycle)
+```
+
+```{r}
+   test=  data.frame(group = c("A","B","C"), FPKM = c(1,2,3))
+
+    ggplot(test, aes(x=group, y = FPKM, group=1))+
+    geom_line()
+```
+
+```{r}
+    Reduce_list_goi <- function(df, goi){
+        temp_data = df %>% select("gene_short_name","FPKM") %>%
+                        filter(gene_short_name %in% goi)
+        return(temp_data)
+    }
+    
+    join_tables <- function(df1,df2,name1,name2,goi){
+        temp_df2 = Reduce_list_goi(df2,goi)
+        temp_data = full_join(df1,temp_df2,by = "gene_short_name")
+        colnames(temp_data)[length(temp_data)] = name2
+        return(temp_data)
+    }
+    
+    
+    join_all_tables <- function(goi){
+        full_table = data.frame( gene_short_name = goi)
+        for (i in 1:length(tot_data_name)){
+                full_table = join_tables(full_table,data.frame(tot_data[i]),"full Table",tot_data_name[i],goi)
+        }
+        full_table <- full_table  %>% column_to_rownames(var="gene_short_name")
+        return(full_table)
+    }
+
+    tot_data = list(P0_2,P4_1,P4_2,P7_1,P7_2,AD_1,AD_2)
+    tot_data_name = c("P0_2","P4_1","P4_2","P7_1","P7_2","AD_1","AD_2")
+    
+    temp =  gene_exp %>% arrange(q_value) %>%
+            select(gene)
+    top1000 = unique(temp[1:1000,])
+    
+    df_graph = join_all_tables(top1000)
+    
+    TrowName = df_graph$gene_short_name
+    df.clustering_data = df_graph[complete.cases(df_graph),-1]
+    row.names(df.clustering_data) = TrowName
+```
+
+
+
